@@ -229,7 +229,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
         ## crop to lmin, lmax
         lmin = 3500.
         lmax = 10000.
-        if use_frames:
+        if use_frames or use_best_exp or use_random_exp:
             la = 10**h[3].read()
             if h[0].read_header()["CAMERAS"][0]=="b":
                 lmax = 6000.
