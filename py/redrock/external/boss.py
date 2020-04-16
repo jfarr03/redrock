@@ -76,7 +76,8 @@ def write_zbest(outfile, zbest, template_version, archetype_version):
 
 ### @profile
 def read_spectra(spplates_name, targetids=None, use_frames=False,
-    fiberid=None, coadd=False, cache_Rcsr=False, use_andmask=False):
+    fiberid=None, coadd=False, cache_Rcsr=False, use_andmask=False,
+    use_best_exp=False, use_random_exp=False, random_seed=0):
     """Read targets from a list of spectra files
 
     Args:
@@ -117,9 +118,9 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
         if useThingid:
             photoPlate = fitsio.FITS(spplate_name.replace('spPlate','photoPosPlate'))
 
+        cameras = ['b1','r1','b2','r2']
         if use_frames:
             path = os.path.dirname(spplate_name)
-            cameras = ['b1','r1','b2','r2']
 
             nexp_tot=0
             for c in cameras:
@@ -135,6 +136,59 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                     infiles.append(exp)
                     if useThingid:
                         fiberid2thingid[exp] = photoPlate[1]['THING_ID'][:]
+        elif use_best_exp:
+            path = os.path.dirname(spplate_name)
+
+            bestexp = spplate[0].read_header()["BESTEXP"]
+            expid = str(bestexp).zfill(8)
+            for c in cameras:
+                exp = path+"/spCFrame-"+c+'-'+expid+".fits"
+                infiles.append(exp)
+
+                ## Unsure about this: copied from use_frames.
+                if useThingid:
+                    fiberid2thingid[exp] = photoPlate[1]['THING_ID'][:]
+        elif use_random_exp:
+            path = os.path.dirname(spplate_name)
+
+            ## For each exposure that went into the spplate file, extract the
+            ## expid from the spplate header. Remove duplicates (from different
+            ## cameras) and put into a random order. Use targetid for fiber 0 +
+            ## an input seed as a random seed.
+            nexp = spplate[0].read_header()["NEXP"]
+            expids = list(set([spplate[0].read_header()["EXPID"+str(n+1).zfill(2)][3:11] for n in range(nexp)]))
+            expids.sort()
+            seed = platemjdfiber2targetid(spplate[0].read_header()["PLATEID"],
+                    spplate[0].read_header()["MJD"],0) + random_seed
+            gen = np.random.RandomState(seed=seed)
+            gen.shuffle(expids)
+
+            ## For each expid:
+            ind = 0
+            exit = False
+            while (ind<len(expids)) and (not exit):
+                # Check that this exposure exists for all cameras.
+                files_exist = True
+                for c in cameras:
+                    exp = path+"/spCFrame-"+c+'-'+expid+".fits"
+                    if not os.path.isfile(exp):
+                        files_exist &= False
+
+                # If so, add exposures to the list of infiles.
+                if files_exist:
+                    for c in cameras:
+                        exp = path+"/spCFrame-"+c+'-'+expid+".fits"
+                        infiles.append(exp)
+
+                        ## Unsure about this: copied from use_frames.
+                        if useThingid:
+                            fiberid2thingid[exp] = photoPlate[1]['THING_ID'][:]
+                    # Exit the while loop.
+                    exit = True
+            # If we did not find files, print a notification.
+            if not files_exist:
+                print("DEBUG: could not find spCFrame files for all cameras for any single exposure in spplate {}".format(spplate_name))
+                continue
         else:
             infiles.append(spplate_name)
             if useThingid:
@@ -357,6 +411,19 @@ def rrboss(options=None, comm=None):
         required=False, help="debug with ipython (only if communicator has a "
         "single process)")
 
+    parser.add_argument("--use-best-exp", default=False, action="store_true",
+        required=False, help="use individual spcframe files from the best exp  "
+        "instead of spplate (the spCFrame files are expected to be in the same "
+        "directory as the spPlate)")
+
+    parser.add_argument("--use-random-exp", default=False, action="store_true",
+        required=False, help="use individual spcframe files from a random exp  "
+        "instead of spplate (the spCFrame files are expected to be in the same "
+        "directory as the spPlate)")
+
+    parser.add_argument("--random-seed", type=int, default=0,
+        required=False, help="seed for choosing random exposure")
+
     args = None
     if options is None:
         args = parser.parse_args()
@@ -444,7 +511,9 @@ def rrboss(options=None, comm=None):
         # table though.
         targets, meta = read_spectra(args.spplate, targetids=targetids,
             use_frames=args.use_frames, coadd=(not args.allspec),
-            cache_Rcsr=True, use_andmask=args.use_andmask)
+            cache_Rcsr=True, use_andmask=args.use_andmask,
+            use_best_exp=args.use_best_exp, use_random_exp=args.use_random_exp,
+            random_seed=args.random_seed)
 
         if args.ntargets is not None:
             targets = targets[first_target:first_target+n_targets]

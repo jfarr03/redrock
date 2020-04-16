@@ -286,17 +286,20 @@ def plan(args, comm=None):
         if args.outdir is not None:
             rrcmd += ' --outdir {}'.format(os.path.abspath(args.outdir))
 
-        ## HACK ADDITION ##
-
         rrcmd += ' --datatype {}'.format(args.datatype)
 
         if args.boss_use_frames:
             rrcmd += ' --use-frames'
 
         if args.boss_allspec:
-                cmd += ' --allspec'
+            rrcmd += ' --allspec'
 
-        ## END OF HACK ADDITION ##
+        if args.boss_use_best_exp:
+            rrcmd += ' --use-best-exp'
+
+        if args.boss_use_random_exp:
+            rrcmd += ' --use-random-exp'
+            rrcmd += ' --random-seed {}'.format(args.boss_random_seed)
 
         print('srun -N $nodes -n $nodes -c {} {}'.format(maxproc, rrcmd))
 
@@ -340,8 +343,6 @@ def run_redrock(args, comm=None):
         elif args.datatype == 'boss':
             cmd = 'rrboss --spplate {}'.format(specfiles[i])
 
-            ## HACK ADDITION ##
-            
             # Get the plate directory.
             plate_dir = specfiles[i].split('spPlate')[0]
             # Get -{plate}-{mjd} as a string.
@@ -353,14 +354,19 @@ def run_redrock(args, comm=None):
                 targetids_str = file.read()
             # Add targetids to the command.
             cmd += ' --targetids ' + targetids_str
-            
+
             if args.boss_use_frames:
                 cmd += ' --use-frames'
-            
+
             if args.boss_allspec:
                 cmd += ' --allspec'
 
-            ## END OF HACK ADDITION ##
+            if args.boss_use_best_exp:
+                rrcmd += ' --use-best-exp'
+
+            if args.boss_use_random_exp:
+                rrcmd += ' --use-random-exp'
+                rrcmd += ' --random-seed {}'.format(args.boss_random_seed)
 
         cmd += ' --nminima {}'.format(args.nminima)
         cmd += ' -o {} --zbest {}'.format(rrfiles[i], zbfiles[i])
@@ -440,9 +446,19 @@ def main():
     parser.add_argument("--boss-use-frames", default=False, action="store_true",
         required=False, help="if using boss data, use individual spcframes instead of spplate "
         "(the spCFrame files are expected to be in the same directory as "
-        "the spPlate")    
+        "the spPlate")
     parser.add_argument("--boss-allspec", default=False, action="store_true",
         required=False, help="if using boss data, use individual spectra instead of coadd")
+    parser.add_argument("--boss-use-best-exp", default=False, action="store_true",
+        required=False, help="if using boss data, use individual spcframe files from the best exp  "
+        "instead of spplate (the spCFrame files are expected to be in the same "
+        "directory as the spPlate)")
+    parser.add_argument("--boss-use-random-exp", default=False, action="store_true",
+        required=False, help="if using boss data, use individual spcframe files from a random exp  "
+        "instead of spplate (the spCFrame files are expected to be in the same "
+        "directory as the spPlate)")
+    parser.add_argument("--boss-random-seed", type=int, default=0,
+        required=False, help="if using boss data, seed for choosing random exposure")
     args = parser.parse_args()
 
     if args.prefix is None:
