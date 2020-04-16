@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/global/common/software/desi/cori/desiconda/20190804-1.3.0-spec/conda/bin/python
 
 """
 MPI wrapper for redrock
@@ -285,6 +285,19 @@ def plan(args, comm=None):
             os.path.abspath(__file__), args.mp, args.reduxdir)
         if args.outdir is not None:
             rrcmd += ' --outdir {}'.format(os.path.abspath(args.outdir))
+
+        ## HACK ADDITION ##
+
+        rrcmd += ' --datatype {}'.format(args.datatype)
+
+        if args.boss_use_frames:
+            rrcmd += ' --use-frames'
+
+        if args.boss_allspec:
+                cmd += ' --allspec'
+
+        ## END OF HACK ADDITION ##
+
         print('srun -N $nodes -n $nodes -c {} {}'.format(maxproc, rrcmd))
 
     return specfiles, groups, grouptimes
@@ -326,6 +339,28 @@ def run_redrock(args, comm=None):
             cmd = 'rrdesi {}'.format(specfiles[i])
         elif args.datatype == 'boss':
             cmd = 'rrboss --spplate {}'.format(specfiles[i])
+
+            ## HACK ADDITION ##
+            
+            # Get the plate directory.
+            plate_dir = specfiles[i].split('spPlate')[0]
+            # Get -{plate}-{mjd} as a string.
+            dpdm = specfiles[i].split('spPlate')[1][:-5]
+            # Make the targetids file name.
+            f_targetids = plate_dir + '/targetids' + dpdm + '.txt'
+            # Extract the targetids as a string.
+            with open(f_targetids,'r') as file:
+                targetids_str = file.read()
+            # Add targetids to the command.
+            cmd += ' --targetids ' + targetids_str
+            
+            if args.boss_use_frames:
+                cmd += ' --use-frames'
+            
+            if args.boss_allspec:
+                cmd += ' --allspec'
+
+            ## END OF HACK ADDITION ##
 
         cmd += ' --nminima {}'.format(args.nminima)
         cmd += ' -o {} --zbest {}'.format(rrfiles[i], zbfiles[i])
@@ -402,6 +437,12 @@ def main():
     parser.add_argument("--datatype", type=str, default='desi',
         help="desi (default) or boss", choices=['desi', 'boss'])
     parser.add_argument("--prefix", type=str,  help="spectra file name prefix")
+    parser.add_argument("--boss-use-frames", default=False, action="store_true",
+        required=False, help="if using boss data, use individual spcframes instead of spplate "
+        "(the spCFrame files are expected to be in the same directory as "
+        "the spPlate")    
+    parser.add_argument("--boss-allspec", default=False, action="store_true",
+        required=False, help="if using boss data, use individual spectra instead of coadd")
     args = parser.parse_args()
 
     if args.prefix is None:
