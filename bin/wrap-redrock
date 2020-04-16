@@ -362,11 +362,11 @@ def run_redrock(args, comm=None):
                 cmd += ' --allspec'
 
             if args.boss_use_best_exp:
-                rrcmd += ' --use-best-exp'
+                cmd += ' --use-best-exp'
 
             if args.boss_use_random_exp:
-                rrcmd += ' --use-random-exp'
-                rrcmd += ' --random-seed {}'.format(args.boss_random_seed)
+                cmd += ' --use-random-exp'
+                cmd += ' --random-seed {}'.format(args.boss_random_seed)
 
         cmd += ' --nminima {}'.format(args.nminima)
         cmd += ' -o {} --zbest {}'.format(rrfiles[i], zbfiles[i])
