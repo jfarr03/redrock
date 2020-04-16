@@ -259,7 +259,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
 
         for f in fs:
             i = (f-1)
-            if use_frames:
+            if use_frames or use_best_exp or use_random_exp:
                 i = i%500
 
             if useThingid:
