@@ -151,6 +151,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                 ## Unsure about this: copied from use_frames.
                 if useThingid:
                     fiberid2thingid[exp] = photoPlate[1]['THING_ID'][:]
+            print("DEBUG: using best exposure",expid)
         elif use_random_exp:
             path = os.path.dirname(spplate_name)
 
@@ -194,6 +195,8 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
             if not files_exist:
                 print("DEBUG: could not find spCFrame files for all cameras for any single exposure in spplate {}".format(spplate_name))
                 continue
+            else:
+                print("DEBUG: using randomly chosen exposure",expid)
         else:
             infiles.append(spplate_name)
             if useThingid:
