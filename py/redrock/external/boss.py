@@ -37,6 +37,8 @@ from .._version import __version__
 
 from ..archetypes import All_archetypes
 
+from ..rebin import trapz_rebin, centers2edges
+
 
 def platemjdfiber2targetid(plate, mjd, fiber):
     return plate*1000000000 + mjd*10000 + fiber
@@ -207,6 +209,10 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
     else:
         mjd = 0
 
+    #print('in files has {} entries'.format(len(infiles)))
+    #print('first entry is:')
+    #print(infiles[0])
+    #sys.stdout.flush()
 
     bricknames={}
     dic_spectra = {}
@@ -229,17 +235,60 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
         ## crop to lmin, lmax
         lmin = 3500.
         lmax = 10000.
-        if use_frames or use_best_exp or use_random_exp:
+        if use_frames:
             la = 10**h[3].read()
             if h[0].read_header()["CAMERAS"][0]=="b":
                 lmax = 6000.
             else:
                 lmin = 5500.
+
+        elif use_best_exp or use_random_exp:
+            # Get the lambda grid from the spcframe file.
+            la = 10**h[3].read()
+            #print('wavelength grid has shape',la.shape,'before hack')
+
+            # Find the spplate file that the spcframe went into.
+            path = os.path.dirname(infile)
+            f_spplate = path+'/spPlate-{}-{}.fits'.format(plate,mjd)
+            spplate = fitsio.FITS(f_spplate)
+
+            # Get its wavelength grid.
+            coeff0 = spplate[0].read_header()["COEFF0"]
+            coeff1 = spplate[0].read_header()["COEFF1"]
+            fl_spplate = spplate[0].read()
+            la_spplate = 10**(coeff0 + coeff1*np.arange(fl_spplate.shape[1]))
+            la_spplate_edges = centers2edges(la_spplate)
+            
+            # Rebin each spectrum onto the spplate file's wavelength grid.
+            # This is done in a *very* basic way at the moment.
+            nspec = fl.shape[0]
+            npix = la_spplate.shape[0]
+            fl_new = np.zeros((nspec,npix))
+            iv_new = np.zeros((nspec,npix))
+            wd_new = np.zeros((nspec,npix))
+            for i in range(nspec):
+                w = (la_spplate_edges[:-1]>la[i,0]) & (la_spplate_edges[1:]<la[i,-1])
+                w_edges = (la_spplate_edges>la[i,0]) & (la_spplate_edges<la[i,-1])
+                fl_new[i,w] = trapz_rebin(la[i,:], fl[i,:], edges=la_spplate_edges[w_edges])
+                iv_new[i,w] = trapz_rebin(la[i,:], iv[i,:], edges=la_spplate_edges[w_edges])
+                wd_new[i,w] = trapz_rebin(la[i,:], wd[i,:], edges=la_spplate_edges[w_edges])
+
+            # Overwrite the data from the spcframe file.
+            fl = fl_new
+            iv = iv_new
+            wd = wd_new
+            la = np.broadcast_to(la_spplate,fl.shape)
+        
         else:
             coeff0 = h[0].read_header()["COEFF0"]
             coeff1 = h[0].read_header()["COEFF1"]
             la = 10**(coeff0 + coeff1*np.arange(fl.shape[1]))
             la = np.broadcast_to(la,fl.shape)
+
+        #print('wavelength grid has shape',la.shape,'after hack')
+        #sys.stdout.flush()
+
+        h.close()
 
         imin = abs(la-lmin).min(axis=0).argmin()
         imax = abs(la-lmax).min(axis=0).argmin()
@@ -300,8 +349,9 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
 
             dic_spectra[t].append(Spectrum(la[i], fl[i], iv[i], R, Rcsr))
 
-        h.close()
+        #h.close()
         print("DEBUG: read {} ".format(infile))
+        sys.stdout.flush()
 
     if targetids == None:
         targetids = sorted(list(dic_spectra.keys()))
@@ -318,8 +368,22 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
         tmeta["BRICKNAME_datatype"] = "S8"
         if len(spectra) > 0:
             targets.append(Target(targetid, spectra, coadd=coadd, meta=tmeta))
+            #if targetid==targetids[0]:
+                #print('first targetid =',targetid)
+                #print('has {} spectra going in'.format(len(spectra)))
+                #print('these have first elements in waves:')
+                #print([s.wave[0] for s in spectra])
+                #print('these have wavehashes:')
+                #print([s.wavehash for s in spectra])
+                #print('spectra will be coadded?',coadd)
+                #print('has {} spectra in Target object'.format(len(Target(targetid, spectra, coadd=coadd, meta=tmeta).spectra)))
+                #print(' ')
+                #sys.stdout.flush()
         else:
             print('ERROR: Target {} on {} has no good spectra'.format(targetid, os.path.basename(brickfiles[0])))
+
+    #print('list of targets made')
+    #sys.stdout.flush()
 
     #- Create a metadata table in case we might want to add other columns
     #- in the future
@@ -494,13 +558,17 @@ def rrboss(options=None, comm=None):
         sys.stdout.flush()
     elif comm_rank == 0:
         print("Running with {} processes".format(comm_size))
+        #print("pre flush")
         sys.stdout.flush()
+        #print("flushed")
 
     try:
         # Load and distribute the targets
         if comm_rank == 0:
             print("Loading targets...")
+            #print("pre flush")
             sys.stdout.flush()
+            #print("flushed")
 
         start = elapsed(None, "", comm=comm)
 
@@ -509,11 +577,16 @@ def rrboss(options=None, comm=None):
         # that could be changed to work like the DESI write_zbest() function.
         # Each target contains metadata which is propagated to the output zbest
         # table though.
+        #print('checkpoint: start read_spectra')
+        #sys.stdout.flush()
         targets, meta = read_spectra(args.spplate, targetids=targetids,
             use_frames=args.use_frames, coadd=(not args.allspec),
             cache_Rcsr=True, use_andmask=args.use_andmask,
             use_best_exp=args.use_best_exp, use_random_exp=args.use_random_exp,
             random_seed=args.random_seed)
+        #print('checkpoint: end read_spectra')
+        #print('{} targets read'.format(len(targets)))
+        #sys.stdout.flush()
 
         if args.ntargets is not None:
             targets = targets[first_target:first_target+n_targets]
@@ -531,13 +604,20 @@ def rrboss(options=None, comm=None):
         # Get the dictionary of wavelength grids
         dwave = dtargets.wavegrids()
 
+        #print('\n\n\nlen(dwave) =',len(dwave),'\n\n\n')
+        #sys.stdout.flush()
+
         stop = elapsed(start, "Distribution of {} targets"\
             .format(len(dtargets.all_target_ids)), comm=comm)
 
         # Read the template data
 
+        #print('checkpoint: start load_dist_templates')
+        #sys.stdout.flush()
         dtemplates = load_dist_templates(dwave, templates=args.templates,
             comm=comm, mp_procs=mpprocs)
+        #print('checkpoint: enc load_dist_templates')
+        #sys.stdout.flush()
 
         # Compute the redshifts, including both the coarse scan and the
         # refinement.  This function only returns data on the rank 0 process.

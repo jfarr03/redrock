@@ -280,11 +280,17 @@ class DistTemplate(object):
         # workers to do the rebinning.
 
         if self._comm is not None:
+            #print('checkpoint DistTemplates: start MPI')
+            #print(len(myz))
+            #sys.stdout.flush()
             # MPI case- compute our local redshifts
             for z in myz:
                 binned = rebin_template(self._template, z, self._dwave)
                 data.append(binned)
+            #print('checkpoint DistTemplates: end MPI')
+            #sys.stdout.flush()
         else:
+            #print('checkpoint DistTemplates: start multiprocessing')
             # We don't have MPI, so use multiprocessing
             import multiprocessing as mp
 
@@ -292,18 +298,22 @@ class DistTemplate(object):
             work = np.array_split(myz, mp_procs)
             procs = list()
             for i in range(mp_procs):
+                #print(i)
                 p = mp.Process(target=_mp_rebin_template,
                     args=(self._template, self._dwave, work[i], qout))
                 procs.append(p)
                 p.start()
 
+            #print('checkpoint multiprocessing: start extract')
             # Extract the output into a single list
             results = dict()
             for i in range(mp_procs):
                 res = qout.get()
                 results.update(res)
+            #print('checkpoint multiprocessing: end extract')
             for z in myz:
                 data.append(results[z])
+            #print('checkpoint DistTemplates: end multiprocessing')
 
         # Correct spectra for Lyman-series
         for i, z in enumerate(myz):
@@ -453,8 +463,15 @@ def load_dist_templates(dwave, templates=None, comm=None, mp_procs=1):
     # process generating a slice of the redshift range.
 
     dtemplates = list()
+    #print('checkpoint load_dist_templates: start compute DistTemplates')
+    #print('{} template_data entries to iterate through'.format(len(template_data)))
+    #sys.stdout.flush()
     for t in template_data:
+        #print(len(dwave),mp_procs,comm)
+        sys.stdout.flush()
         dtemplates.append(DistTemplate(t, dwave, mp_procs=mp_procs, comm=comm))
+    #print('checkpoint load_dist_templates: finish compute DistTemplates')
+    #sys.stdout.flush()
 
     timer = elapsed(timer, "Rebinning templates", comm=comm)
 

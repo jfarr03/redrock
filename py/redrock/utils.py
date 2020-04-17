@@ -88,7 +88,9 @@ def elapsed(timer, prefix, comm=None):
         elapsed = cur - timer
         if ((comm is None) or (comm.rank == 0)):
             print("{}: {:0.1f} seconds".format(prefix, elapsed))
+            #print("pre flush")
             sys.stdout.flush()
+            #print("flushed")
 
     return cur
 

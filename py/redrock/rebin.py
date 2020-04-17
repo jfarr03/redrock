@@ -7,6 +7,7 @@ Tools for binning data.
 
 from __future__ import absolute_import, division, print_function
 
+import sys
 import numpy as np
 import numba
 
@@ -144,5 +145,11 @@ def rebin_template(template, z, dwave):
 
     """
     nbasis = template.flux.shape[0]  #- number of template basis vectors
-    result = { hs:np.array([ trapz_rebin((1.+z)*template.wave, template.flux[b], wave) for b in range(nbasis) ]).transpose() for hs, wave in dwave.items() }
+    #print('checkpoint: starting rebinning dict construction')
+    #print('nbasis =',nbasis)
+    #print(len(dwave))
+    #sys.stdout.flush()
+    result = { hs:np.array([ trapz_rebin((1.+z)*template.wave, template.flux[b], wave) for b in range(nbasis) ]).transpose() for hs, wave in dwave.items()}
+    #print('checkpoint: ending rebinning dict construction')
+    #sys.stdout.flush()
     return result

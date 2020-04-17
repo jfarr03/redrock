@@ -4,7 +4,7 @@ Classes and functions for targets and their spectra.
 
 from __future__ import absolute_import, division, print_function
 
-
+import sys
 import numpy as np
 import scipy.sparse
 
@@ -301,12 +301,17 @@ class DistTargets(object):
     def wavegrids(self):
         """Return the global dictionary of wavelength grids for each wave hash.
         """
+        #print('self._dwave at start of wavegrids =',self._dwave)
         if self._dwave is None:
             my_dwave = dict()
+            #print('number of entries in self.local() =',len(self.local()))
             for t in self.local():
+                #print('number of entries in t.spectra =',len(t.spectra))
+                #print('number of unique entries in t.spectra =',len(set(t.spectra)))
                 for s in t.spectra:
                     if s.wavehash not in my_dwave:
                         my_dwave[s.wavehash] = s.wave.copy()
+            #print('len(my_dwave) =',len(my_dwave))
             if self._comm is None:
                 self._dwave = my_dwave.copy()
             else:
@@ -318,7 +323,8 @@ class DistTargets(object):
                             self._dwave[k] = v.copy()
                 del temp
             del my_dwave
-
+        #print('len(self._dwave) at end of wavegrids =',len(self._dwave))
+        #sys.stdout.flush()
         return self._dwave
 
 
