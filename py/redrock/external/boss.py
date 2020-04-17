@@ -97,6 +97,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
         meta is a Table of metadata (currently only BRICKNAME).
 
     """
+
     # check the file list
     if isinstance(spplates_name, str):
         import glob
@@ -155,20 +156,21 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
 
             ## For each exposure that went into the spplate file, extract the
             ## expid from the spplate header. Remove duplicates (from different
-            ## cameras) and put into a random order. Use targetid for fiber 0 +
-            ## an input seed as a random seed.
+            ## cameras) and put into a random order. Use [plate,mjd,random_seed] 
+            ## as a random seed.
             nexp = spplate[0].read_header()["NEXP"]
             expids = list(set([spplate[0].read_header()["EXPID"+str(n+1).zfill(2)][3:11] for n in range(nexp)]))
             expids.sort()
-            seed = platemjdfiber2targetid(spplate[0].read_header()["PLATEID"],
-                    spplate[0].read_header()["MJD"],0) + random_seed
-            gen = np.random.RandomState(seed=seed)
+            gen = np.random.RandomState(seed=[spplate[0].read_header()["PLATEID"],spplate[0].read_header()["MJD"],random_seed])
             gen.shuffle(expids)
 
             ## For each expid:
             ind = 0
             exit = False
             while (ind<len(expids)) and (not exit):
+                expid = expids[ind]
+                ind += 1
+
                 # Check that this exposure exists for all cameras.
                 files_exist = True
                 for c in cameras:
@@ -187,6 +189,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                             fiberid2thingid[exp] = photoPlate[1]['THING_ID'][:]
                     # Exit the while loop.
                     exit = True
+    
             # If we did not find files, print a notification.
             if not files_exist:
                 print("DEBUG: could not find spCFrame files for all cameras for any single exposure in spplate {}".format(spplate_name))
