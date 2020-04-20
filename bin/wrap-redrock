@@ -301,6 +301,9 @@ def plan(args, comm=None):
             rrcmd += ' --use-random-exp'
             rrcmd += ' --random-seed {}'.format(args.boss_random_seed)
 
+        if args.boss_coadd_frames:
+            rrcmd += ' --coadd-frames'
+
         print('srun -N $nodes -n $nodes -c {} {}'.format(maxproc, rrcmd))
 
     return specfiles, groups, grouptimes
@@ -367,6 +370,9 @@ def run_redrock(args, comm=None):
             if args.boss_use_random_exp:
                 cmd += ' --use-random-exp'
                 cmd += ' --random-seed {}'.format(args.boss_random_seed)
+
+            if args.boss_coadd_frames:
+                cmd += ' --coadd-frames'
 
         cmd += ' --nminima {}'.format(args.nminima)
         cmd += ' -o {} --zbest {}'.format(rrfiles[i], zbfiles[i])
@@ -457,6 +463,9 @@ def main():
         required=False, help="if using boss data, use individual spcframe files from a random exp  "
         "instead of spplate (the spCFrame files are expected to be in the same "
         "directory as the spPlate)")
+    parser.add_argument("--boss-coadd-frames", default=False, action="store_true",
+        required=False, help="if using boss data with spcframe files, coadd "
+        "spectra across the blue and red cameras.")
     parser.add_argument("--boss-random-seed", type=int, default=0,
         required=False, help="if using boss data, seed for choosing random exposure")
     args = parser.parse_args()

@@ -79,7 +79,8 @@ def write_zbest(outfile, zbest, template_version, archetype_version):
 ### @profile
 def read_spectra(spplates_name, targetids=None, use_frames=False,
     fiberid=None, coadd=False, cache_Rcsr=False, use_andmask=False,
-    use_best_exp=False, use_random_exp=False, random_seed=0):
+    use_best_exp=False, use_random_exp=False, random_seed=0,
+    coadd_frames=False):
     """Read targets from a list of spectra files
 
     Args:
@@ -157,7 +158,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
 
             ## For each exposure that went into the spplate file, extract the
             ## expid from the spplate header. Remove duplicates (from different
-            ## cameras) and put into a random order. Use [plate,mjd,random_seed] 
+            ## cameras) and put into a random order. Use [plate,mjd,random_seed]
             ## as a random seed.
             nexp = spplate[0].read_header()["NEXP"]
             expids = list(set([spplate[0].read_header()["EXPID"+str(n+1).zfill(2)][3:11] for n in range(nexp)]))
@@ -190,7 +191,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                             fiberid2thingid[exp] = photoPlate[1]['THING_ID'][:]
                     # Exit the while loop.
                     exit = True
-    
+
             # If we did not find files, print a notification.
             if not files_exist:
                 print("DEBUG: could not find spCFrame files for all cameras for any single exposure in spplate {}".format(spplate_name))
@@ -241,50 +242,50 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
         ## crop to lmin, lmax
         lmin = 3500.
         lmax = 10000.
-        if use_frames:
-            la = 10**h[3].read()
-            if h[0].read_header()["CAMERAS"][0]=="b":
-                lmax = 6000.
-            else:
-                lmin = 5500.
-
-        elif use_best_exp or use_random_exp:
+        if use_frames or use_best_exp or use_random_exp:
             # Get the lambda grid from the spcframe file.
             la = 10**h[3].read()
             #print('wavelength grid has shape',la.shape,'before hack')
 
-            # Find the spplate file that the spcframe went into.
-            path = os.path.dirname(infile)
-            f_spplate = path+'/spPlate-{}-{}.fits'.format(plate,mjd)
-            spplate = fitsio.FITS(f_spplate)
+            if coadd_frames:
+                # Find the spplate file that the spcframe went into.
+                path = os.path.dirname(infile)
+                f_spplate = path+'/spPlate-{}-{}.fits'.format(plate,mjd)
+                spplate = fitsio.FITS(f_spplate)
 
-            # Get its wavelength grid.
-            coeff0 = spplate[0].read_header()["COEFF0"]
-            coeff1 = spplate[0].read_header()["COEFF1"]
-            fl_spplate = spplate[0].read()
-            la_spplate = 10**(coeff0 + coeff1*np.arange(fl_spplate.shape[1]))
-            la_spplate_edges = centers2edges(la_spplate)
-            
-            # Rebin each spectrum onto the spplate file's wavelength grid.
-            # This is done in a *very* basic way at the moment.
-            nspec = fl.shape[0]
-            npix = la_spplate.shape[0]
-            fl_new = np.zeros((nspec,npix))
-            iv_new = np.zeros((nspec,npix))
-            wd_new = np.zeros((nspec,npix))
-            for i in range(nspec):
-                w = (la_spplate_edges[:-1]>la[i,0]) & (la_spplate_edges[1:]<la[i,-1])
-                w_edges = (la_spplate_edges>la[i,0]) & (la_spplate_edges<la[i,-1])
-                fl_new[i,w] = trapz_rebin(la[i,:], fl[i,:], edges=la_spplate_edges[w_edges])
-                iv_new[i,w] = trapz_rebin(la[i,:], iv[i,:], edges=la_spplate_edges[w_edges])
-                wd_new[i,w] = trapz_rebin(la[i,:], wd[i,:], edges=la_spplate_edges[w_edges])
+                # Get its wavelength grid.
+                coeff0 = spplate[0].read_header()["COEFF0"]
+                coeff1 = spplate[0].read_header()["COEFF1"]
+                fl_spplate = spplate[0].read()
+                la_spplate = 10**(coeff0 + coeff1*np.arange(fl_spplate.shape[1]))
+                la_spplate_edges = centers2edges(la_spplate)
 
-            # Overwrite the data from the spcframe file.
-            fl = fl_new
-            iv = iv_new
-            wd = wd_new
-            la = np.broadcast_to(la_spplate,fl.shape)
-        
+                # Rebin each spectrum onto the spplate file's wavelength grid.
+                # This is done in a *very* basic way at the moment.
+                nspec = fl.shape[0]
+                npix = la_spplate.shape[0]
+                fl_new = np.zeros((nspec,npix))
+                iv_new = np.zeros((nspec,npix))
+                wd_new = np.zeros((nspec,npix))
+                for i in range(nspec):
+                    w = (la_spplate_edges[:-1]>la[i,0]) & (la_spplate_edges[1:]<la[i,-1])
+                    w_edges = (la_spplate_edges>la[i,0]) & (la_spplate_edges<la[i,-1])
+                    fl_new[i,w] = trapz_rebin(la[i,:], fl[i,:], edges=la_spplate_edges[w_edges])
+                    iv_new[i,w] = trapz_rebin(la[i,:], iv[i,:], edges=la_spplate_edges[w_edges])
+                    wd_new[i,w] = trapz_rebin(la[i,:], wd[i,:], edges=la_spplate_edges[w_edges])
+
+                # Overwrite the data from the spcframe file.
+                fl = fl_new
+                iv = iv_new
+                wd = wd_new
+                la = np.broadcast_to(la_spplate,fl.shape)
+                
+            else:
+                if h[0].read_header()["CAMERAS"][0]=="b":
+                    lmax = 6000.
+                else:
+                    lmin = 5500.
+
         else:
             coeff0 = h[0].read_header()["COEFF0"]
             coeff1 = h[0].read_header()["COEFF1"]
@@ -491,6 +492,10 @@ def rrboss(options=None, comm=None):
         "instead of spplate (the spCFrame files are expected to be in the same "
         "directory as the spPlate)")
 
+    parser.add_argument("--coadd-frames", default=False, action="store_true",
+        required=False, help="if using spcframe files, coadd spectra across "
+        "the blue and red cameras.")
+
     parser.add_argument("--random-seed", type=int, default=0,
         required=False, help="seed for choosing random exposure")
 
@@ -544,6 +549,9 @@ def rrboss(options=None, comm=None):
     elif n_targets is not None:
         first_target = 0
 
+    if args.allspec & args.coadd_frames:
+        raise ValueError('Cannot use options allspec and coadd-frames simultaneously!')
+
     # Multiprocessing processes to use if MPI is disabled.
     mpprocs = 0
     if comm is None:
@@ -589,7 +597,7 @@ def rrboss(options=None, comm=None):
             use_frames=args.use_frames, coadd=(not args.allspec),
             cache_Rcsr=True, use_andmask=args.use_andmask,
             use_best_exp=args.use_best_exp, use_random_exp=args.use_random_exp,
-            random_seed=args.random_seed)
+            random_seed=args.random_seed, coadd_frames=args.coadd_frames)
         #print('checkpoint: end read_spectra')
         #print('{} targets read'.format(len(targets)))
         #sys.stdout.flush()
