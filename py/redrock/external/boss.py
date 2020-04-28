@@ -269,6 +269,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                 iv_new = np.zeros((nspec,npix))
                 wd_new = np.zeros((nspec,npix))
                 for i in range(nspec):
+
                     if coadd_frames_interp=='trapz':
                         ## Integration method.
                         w = (la_spplate_edges[:-1]>la[i,0]) & (la_spplate_edges[1:]<la[i,-1])
@@ -288,14 +289,19 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                         ## Note: I haven't included the iterative pixel rejection/spline building here.
 
                         # Do spline interpolation.
-                        zero_old_iv = (iv[i,:]==0)
-                        fl_new[i,:] = interp1d(la[i,~zero_old_iv], fl[i,~zero_old_iv], kind='cubic', fill_value=0., bounds_error=False)(la_spplate)
+                        w = (iv[i,:]>0)
+                        la_temp = la[i,w]
+                        fl_temp = fl[i,w]
+
+                        if w.sum()>0:
+                            fl_new[i,:] = interp1d(la_temp, fl_temp, kind='cubic', fill_value=0., bounds_error=False)(la_spplate)
 
                         # Do linear interpolation on iv, setting the value to zero in any new pixels that have contributions
                         # from any old pixels with iv=0
                         iv_new[i,:] = interp1d(la[i,:], iv[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
-                        new_pix_w_zero_old_iv = (interp1d(la[i,:], w, kind='linear', fill_value=0., bounds_error=False)(la_spplate))>0
-                        iv_new[new_pix_w_zero_old_iv] = 0.
+                        zero_old_iv = (~w).astype(float)
+                        new_pix_w_zero_old_iv = (interp1d(la[i,:], zero_old_iv, kind='linear', fill_value=0., bounds_error=False)(la_spplate))>0
+                        iv_new[i,new_pix_w_zero_old_iv] = 0.
 
                         # Do linear interpolation for dispersion.
                         wd_new[i,:] = interp1d(la[i,:], wd[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
