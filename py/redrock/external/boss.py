@@ -275,6 +275,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                     fl_new[i,w] = trapz_rebin(la[i,:], fl[i,:], edges=la_spplate_edges[w_edges])
                     iv_new[i,w] = trapz_rebin(la[i,:], iv[i,:], edges=la_spplate_edges[w_edges])
                     wd_new[i,w] = trapz_rebin(la[i,:], wd[i,:], edges=la_spplate_edges[w_edges])
+                    """
 
                     ## NGP method.
                     fl_new[i,:] = interp1d(la[i,:], fl[i,:], kind='nearest', fill_value=0., bounds_error=False)(la_spplate)
@@ -283,27 +284,24 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
 
                     ## Pipeline method: spline for flux, and linear for iv and disp.
                     ## Note: I haven't included the iterative pixel rejection/spline building here.
-                    """# Making knots?
-                    t_space = 1.2*10**(-4)
-                    order = 3
-                    t_start = la[i,0]
-                    t_npts = (la[i,-1]-la[i,0])/t_space + 1
-                    t = t_start + t_space*np.arange(t_npts)
-                    for i in range(order):
-                        t = np.concatenate([[t[0]-t_space],t,[t[-1]+t_space]])"""
-
                     # Do spline interpolation.
-                    zero_old_iv = (iv[i,:]==0)
-                    fl_new[i,:] = interp1d(la[i,~zero_old_iv], fl[i,~zero_old_iv], kind='cubic', fill_value=0., bounds_error=False)(la_spplate)
+                    w = (iv[i,:]>0)
+                    la_temp = la[i,w]
+                    fl_temp = fl[i,w]
+
+                    if w.sum()>0:
+                        fl_new[i,:] = interp1d(la_temp, fl_temp, kind='cubic', fill_value=0., bounds_error=False)(la_spplate)
 
                     # Do linear interpolation on iv, setting the value to zero in any new pixels that have contributions
                     # from any old pixels with iv=0
                     iv_new[i,:] = interp1d(la[i,:], iv[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
-                    new_pix_w_zero_old_iv = (interp1d(la[i,:], w, kind='linear', fill_value=0., bounds_error=False)(la_spplate))>0
-                    iv_new[new_pix_w_zero_old_iv] = 0.
+                    zero_old_iv = (~w).astype(float)
+                    new_pix_w_zero_old_iv = (interp1d(la[i,:], zero_old_iv, kind='linear', fill_value=0., bounds_error=False)(la_spplate))>0
+                    iv_new[i,new_pix_w_zero_old_iv] = 0.
 
                     # Do linear interpolation for dispersion.
                     wd_new[i,:] = interp1d(la[i,:], wd[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
+                    """
 
 
                 # Overwrite the data from the spcframe file.
