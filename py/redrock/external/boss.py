@@ -81,7 +81,7 @@ def write_zbest(outfile, zbest, template_version, archetype_version):
 def read_spectra(spplates_name, targetids=None, use_frames=False,
     fiberid=None, coadd=False, cache_Rcsr=False, use_andmask=False,
     use_best_exp=False, use_random_exp=False, random_seed=0,
-    coadd_frames=False):
+    coadd_frames=False,coadd_frames_interp='ngp'):
     """Read targets from a list of spectra files
 
     Args:
@@ -269,41 +269,42 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                 iv_new = np.zeros((nspec,npix))
                 wd_new = np.zeros((nspec,npix))
                 for i in range(nspec):
-                    ## Integration method.
-                    w = (la_spplate_edges[:-1]>la[i,0]) & (la_spplate_edges[1:]<la[i,-1])
-                    w_edges = (la_spplate_edges>la[i,0]) & (la_spplate_edges<la[i,-1])
-                    fl_new[i,w] = trapz_rebin(la[i,:], fl[i,:], edges=la_spplate_edges[w_edges])
-                    iv_new[i,w] = trapz_rebin(la[i,:], iv[i,:], edges=la_spplate_edges[w_edges])
-                    wd_new[i,w] = trapz_rebin(la[i,:], wd[i,:], edges=la_spplate_edges[w_edges])
+                    if coadd_frames_interp=='trapz':
+                        ## Integration method.
+                        w = (la_spplate_edges[:-1]>la[i,0]) & (la_spplate_edges[1:]<la[i,-1])
+                        w_edges = (la_spplate_edges>la[i,0]) & (la_spplate_edges<la[i,-1])
+                        fl_new[i,w] = trapz_rebin(la[i,:], fl[i,:], edges=la_spplate_edges[w_edges])
+                        iv_new[i,w] = trapz_rebin(la[i,:], iv[i,:], edges=la_spplate_edges[w_edges])
+                        wd_new[i,w] = trapz_rebin(la[i,:], wd[i,:], edges=la_spplate_edges[w_edges])
 
-                    ## NGP method.
-                    fl_new[i,:] = interp1d(la[i,:], fl[i,:], kind='nearest', fill_value=0., bounds_error=False)(la_spplate)
-                    iv_new[i,:] = interp1d(la[i,:], iv[i,:], kind='nearest', fill_value=0., bounds_error=False)(la_spplate)
-                    wd_new[i,:] = interp1d(la[i,:], wd[i,:], kind='nearest', fill_value=0., bounds_error=False)(la_spplate)
+                    elif coadd_frames_interp=='ngp':
+                        ## NGP method.
+                        fl_new[i,:] = interp1d(la[i,:], fl[i,:], kind='nearest', fill_value=0., bounds_error=False)(la_spplate)
+                        iv_new[i,:] = interp1d(la[i,:], iv[i,:], kind='nearest', fill_value=0., bounds_error=False)(la_spplate)
+                        wd_new[i,:] = interp1d(la[i,:], wd[i,:], kind='nearest', fill_value=0., bounds_error=False)(la_spplate)
 
-                    ## Pipeline method: spline for flux, and linear for iv and disp.
-                    ## Note: I haven't included the iterative pixel rejection/spline building here.
-                    """# Making knots?
-                    t_space = 1.2*10**(-4)
-                    order = 3
-                    t_start = la[i,0]
-                    t_npts = (la[i,-1]-la[i,0])/t_space + 1
-                    t = t_start + t_space*np.arange(t_npts)
-                    for i in range(order):
-                        t = np.concatenate([[t[0]-t_space],t,[t[-1]+t_space]])"""
+                    elif coadd_frames_interp=='spline':
+                        ## Pipeline method: spline for flux, and linear for iv and disp.
+                        ## Note: I haven't included the iterative pixel rejection/spline building here.
 
-                    # Do spline interpolation.
-                    zero_old_iv = (iv[i,:]==0)
-                    fl_new[i,:] = interp1d(la[i,~zero_old_iv], fl[i,~zero_old_iv], kind='cubic', fill_value=0., bounds_error=False)(la_spplate)
+                        # Do spline interpolation.
+                        zero_old_iv = (iv[i,:]==0)
+                        fl_new[i,:] = interp1d(la[i,~zero_old_iv], fl[i,~zero_old_iv], kind='cubic', fill_value=0., bounds_error=False)(la_spplate)
 
-                    # Do linear interpolation on iv, setting the value to zero in any new pixels that have contributions
-                    # from any old pixels with iv=0
-                    iv_new[i,:] = interp1d(la[i,:], iv[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
-                    new_pix_w_zero_old_iv = (interp1d(la[i,:], w, kind='linear', fill_value=0., bounds_error=False)(la_spplate))>0
-                    iv_new[new_pix_w_zero_old_iv] = 0.
+                        # Do linear interpolation on iv, setting the value to zero in any new pixels that have contributions
+                        # from any old pixels with iv=0
+                        iv_new[i,:] = interp1d(la[i,:], iv[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
+                        new_pix_w_zero_old_iv = (interp1d(la[i,:], w, kind='linear', fill_value=0., bounds_error=False)(la_spplate))>0
+                        iv_new[new_pix_w_zero_old_iv] = 0.
 
-                    # Do linear interpolation for dispersion.
-                    wd_new[i,:] = interp1d(la[i,:], wd[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
+                        # Do linear interpolation for dispersion.
+                        wd_new[i,:] = interp1d(la[i,:], wd[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
+
+                    elif coadd_frames_interp=='spline_simple':
+                        ## Simple spline.
+                        fl_new[i,:] = interp1d(la[i,:], fl[i,:], kind='cubic', fill_value=0., bounds_error=False)(la_spplate)
+                        iv_new[i,:] = interp1d(la[i,:], iv[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
+                        wd_new[i,:] = interp1d(la[i,:], wd[i,:], kind='linear', fill_value=0., bounds_error=False)(la_spplate)
 
 
                 # Overwrite the data from the spcframe file.
@@ -528,6 +529,11 @@ def rrboss(options=None, comm=None):
         required=False, help="if using spcframe files, coadd spectra across "
         "the blue and red cameras.")
 
+    parser.add_argument("--coadd-frames-interp", default=False, action="store_true",
+        choices = ['trapz','ngp','spline','spline_simple']
+        required=False, help="temporary option to control interpolation method "
+        "when coadding frames.")
+
     parser.add_argument("--random-seed", type=int, default=0,
         required=False, help="seed for choosing random exposure")
 
@@ -629,7 +635,8 @@ def rrboss(options=None, comm=None):
             use_frames=args.use_frames, coadd=(not args.allspec),
             cache_Rcsr=True, use_andmask=args.use_andmask,
             use_best_exp=args.use_best_exp, use_random_exp=args.use_random_exp,
-            random_seed=args.random_seed, coadd_frames=args.coadd_frames)
+            random_seed=args.random_seed, coadd_frames=args.coadd_frames,
+            coadd_frames_interp=args.coadd_frames_interp)
         #print('checkpoint: end read_spectra')
         #print('{} targets read'.format(len(targets)))
         #sys.stdout.flush()

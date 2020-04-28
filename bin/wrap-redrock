@@ -304,6 +304,9 @@ def plan(args, comm=None):
         if args.boss_coadd_frames:
             rrcmd += ' --coadd-frames'
 
+        if args.boss_coadd_frames_interp:
+            rrcmd += ' --coadd-frames-interp {}'.format(args.boss_coadd_frames_interp)
+
         print('srun -N $nodes -n $nodes -c {} {}'.format(maxproc, rrcmd))
 
     return specfiles, groups, grouptimes
@@ -373,6 +376,9 @@ def run_redrock(args, comm=None):
 
             if args.boss_coadd_frames:
                 cmd += ' --coadd-frames'
+
+            if args.boss_coadd_frames_interp:
+                cmd += ' --coadd-frames-interp {}'.format(args.boss_coadd_frames_interp)
 
         cmd += ' --nminima {}'.format(args.nminima)
         cmd += ' -o {} --zbest {}'.format(rrfiles[i], zbfiles[i])
@@ -466,6 +472,9 @@ def main():
     parser.add_argument("--boss-coadd-frames", default=False, action="store_true",
         required=False, help="if using boss data with spcframe files, coadd "
         "spectra across the blue and red cameras.")
+    parser.add_argument("--boss-coadd-frames-interp", default=False, action="store_true",
+        required=False, help="temporary option to control interpolation method "
+        "when coadding frames.")
     parser.add_argument("--boss-random-seed", type=int, default=0,
         required=False, help="if using boss data, seed for choosing random exposure")
     args = parser.parse_args()
