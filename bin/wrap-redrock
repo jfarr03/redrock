@@ -472,7 +472,7 @@ def main():
     parser.add_argument("--boss-coadd-frames", default=False, action="store_true",
         required=False, help="if using boss data with spcframe files, coadd "
         "spectra across the blue and red cameras.")
-    parser.add_argument("--boss-coadd-frames-interp", default=False, action="store_true",
+    parser.add_argument("--boss-coadd-frames-interp", type=str, default='ngp',
         required=False, help="temporary option to control interpolation method "
         "when coadding frames.")
     parser.add_argument("--boss-random-seed", type=int, default=0,

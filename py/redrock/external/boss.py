@@ -535,7 +535,7 @@ def rrboss(options=None, comm=None):
         required=False, help="if using spcframe files, coadd spectra across "
         "the blue and red cameras.")
 
-    parser.add_argument("--coadd-frames-interp", default=False, action="store_true",
+    parser.add_argument("--coadd-frames-interp", type=str, default='ngp',
         choices = ['trapz','ngp','spline','spline_simple']
         required=False, help="temporary option to control interpolation method "
         "when coadding frames.")
