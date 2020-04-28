@@ -536,7 +536,7 @@ def rrboss(options=None, comm=None):
         "the blue and red cameras.")
 
     parser.add_argument("--coadd-frames-interp", type=str, default='ngp',
-        choices = ['trapz','ngp','spline','spline_simple']
+        choices = ['trapz','ngp','spline','spline_simple'],
         required=False, help="temporary option to control interpolation method "
         "when coadding frames.")
 
