@@ -162,6 +162,8 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
             ## cameras) and put into a random order. Use [plate,mjd,random_seed]
             ## as a random seed.
             nexp = spplate[0].read_header()["NEXP"]
+            # Set nexp to at most 99 as larger numbers do not fit format. 
+            nexp = min(nexp,99)
             expids = list(set([spplate[0].read_header()["EXPID"+str(n+1).zfill(2)][3:11] for n in range(nexp)]))
             expids.sort()
             gen = np.random.RandomState(seed=[spplate[0].read_header()["PLATEID"],spplate[0].read_header()["MJD"],random_seed])
