@@ -134,7 +134,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
             for c in cameras:
                 try:
                     nexp = spplate[0].read_header()["NEXP_{}".format(c.upper())]
-                except ValueError:
+                except KeyError:
                     print("DEBUG: spplate {} has no exposures in camera {} ".format(spplate_name,c))
                     continue
                 for i in range(1,nexp+1):
@@ -152,7 +152,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
             for s in spectros:
                 b_exp = path+"/spCFrame-b"+s+'-'+expid+".fits"
                 r_exp = path+"/spCFrame-r"+s+'-'+expid+".fits"
-                if (isfile(b_exp) and isfile(r_exp)):
+                if (os.path.isfile(b_exp) and os.path.isfile(r_exp)):
                     spcframes.append(b_exp)
                     spcframes.append(r_exp)
 
@@ -188,7 +188,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                 for s in spectros:
                     b_exp = path+"/spCFrame-b"+s+'-'+expid+".fits"
                     r_exp = path+"/spCFrame-r"+s+'-'+expid+".fits"
-                    if (isfile(b_exp) and isfile(r_exp)):
+                    if (os.path.isfile(b_exp) and os.path.isfile(r_exp)):
                         spcframe_pairs_found += 1
 
                 # If so, add exposures to the list of infiles.
@@ -196,7 +196,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                     for s in spectros:
                         b_exp = path+"/spCFrame-b"+s+'-'+expid+".fits"
                         r_exp = path+"/spCFrame-r"+s+'-'+expid+".fits"
-                        if (isfile(b_exp) and isfile(r_exp)):
+                        if (os.path.isfile(b_exp) and os.path.isfile(r_exp)):
                             spcframes.append(b_exp)
                             spcframes.append(r_exp)
 
@@ -616,7 +616,11 @@ def rrboss(options=None, comm=None):
         first_target = 0
 
     if args.allspec & args.coadd_frames:
-        raise ValueError('Cannot use options allspec and coadd-frames simultaneously!')
+        raise ValueError('Cannot use options --allspec and --coadd-frames simultaneously!')
+
+    if (args.use_frames+args.use_best_exp+args.use_random_exp)>1:
+        raise ValueError('Cannot use more than one of --use-frames, --use-best-exp and --use-random-exp simultaneously!')
+
 
     # Multiprocessing processes to use if MPI is disabled.
     mpprocs = 0
