@@ -123,7 +123,10 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
         if useThingid:
             photoPlate = fitsio.FITS(spplate_name.replace('spPlate','photoPosPlate'))
 
-        cameras = ['b1','r1','b2','r2']
+        spectros = ['1','2']
+        colors = ['b','r']
+        cameras = ['{}{}'.format(c,s) for s in spectros for c in colors]
+
         if use_frames:
             path = os.path.dirname(spplate_name)
 
@@ -146,9 +149,12 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
 
             bestexp = spplate[0].read_header()["BESTEXP"]
             expid = str(bestexp).zfill(8)
-            for c in cameras:
-                exp = path+"/spCFrame-"+c+'-'+expid+".fits"
-                infiles.append(exp)
+            for s in spectros:
+                b_exp = path+"/spCFrame-b"+s+'-'+expid+".fits"
+                r_exp = path+"/spCFrame-r"+s+'-'+expid+".fits"
+                if (isfile(b_exp) and isfile(r_exp)):
+                    spcframes.append(b_exp)
+                    spcframes.append(r_exp)
 
                 ## Unsure about this: copied from use_frames.
                 if useThingid:
@@ -162,7 +168,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
             ## cameras) and put into a random order. Use [plate,mjd,random_seed]
             ## as a random seed.
             nexp = spplate[0].read_header()["NEXP"]
-            # Set nexp to at most 99 as larger numbers do not fit format. 
+            # Set nexp to at most 99 as larger numbers do not fit format.
             nexp = min(nexp,99)
             expids = list(set([spplate[0].read_header()["EXPID"+str(n+1).zfill(2)][3:11] for n in range(nexp)]))
             expids.sort()
@@ -172,32 +178,46 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
             ## For each expid:
             ind = 0
             exit = False
+            nspcframe_pairs = 2
             while (ind<len(expids)) and (not exit):
                 expid = expids[ind]
                 ind += 1
 
                 # Check that this exposure exists for all cameras.
-                files_exist = True
-                for c in cameras:
-                    exp = path+"/spCFrame-"+c+'-'+expid+".fits"
-                    if not os.path.isfile(exp):
-                        files_exist &= False
+                spcframe_pairs_found = 0
+                for s in spectros:
+                    b_exp = path+"/spCFrame-b"+s+'-'+expid+".fits"
+                    r_exp = path+"/spCFrame-r"+s+'-'+expid+".fits"
+                    if (isfile(b_exp) and isfile(r_exp)):
+                        spcframe_pairs_found += 1
 
                 # If so, add exposures to the list of infiles.
-                if files_exist:
-                    for c in cameras:
-                        exp = path+"/spCFrame-"+c+'-'+expid+".fits"
-                        infiles.append(exp)
+                if spcframe_pairs_found==nspcframe_pairs:
+                    for s in spectros:
+                        b_exp = path+"/spCFrame-b"+s+'-'+expid+".fits"
+                        r_exp = path+"/spCFrame-r"+s+'-'+expid+".fits"
+                        if (isfile(b_exp) and isfile(r_exp)):
+                            spcframes.append(b_exp)
+                            spcframes.append(r_exp)
 
                         ## Unsure about this: copied from use_frames.
                         if useThingid:
                             fiberid2thingid[exp] = photoPlate[1]['THING_ID'][:]
+
                     # Exit the while loop.
                     exit = True
 
+                # If not, only require spcframe files from one spectrograph.
+                elif (ind==len(expids)) and (nspcframe_pairs==2):
+                    ind = 0
+                    nspcframe_pairs = 1
+
             # If we did not find files, print a notification.
-            if not files_exist:
-                print("DEBUG: could not find spCFrame files for all cameras for any single exposure in spplate {}".format(spplate_name))
+            if spcframe_pairs_found==0:
+                print("DEBUG: could not find any b/r pairs of spCFrame files for any single exposure in spplate {}".format(spplate_name))
+                continue
+            elif spcframe_pairs_found==1:
+                print("DEBUG: could only find 1 b/r pair of spCFrame files for any single exposure in spplate {}".format(spplate_name))
                 continue
             else:
                 print("DEBUG: using randomly chosen exposure",expid)
