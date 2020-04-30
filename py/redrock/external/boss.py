@@ -153,8 +153,8 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                 b_exp = path+"/spCFrame-b"+s+'-'+expid+".fits"
                 r_exp = path+"/spCFrame-r"+s+'-'+expid+".fits"
                 if (os.path.isfile(b_exp) and os.path.isfile(r_exp)):
-                    spcframes.append(b_exp)
-                    spcframes.append(r_exp)
+                    infiles.append(b_exp)
+                    infiles.append(r_exp)
 
                 ## Unsure about this: copied from use_frames.
                 if useThingid:
@@ -197,8 +197,8 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
                         b_exp = path+"/spCFrame-b"+s+'-'+expid+".fits"
                         r_exp = path+"/spCFrame-r"+s+'-'+expid+".fits"
                         if (os.path.isfile(b_exp) and os.path.isfile(r_exp)):
-                            spcframes.append(b_exp)
-                            spcframes.append(r_exp)
+                            infiles.append(b_exp)
+                            infiles.append(r_exp)
 
                         ## Unsure about this: copied from use_frames.
                         if useThingid:
