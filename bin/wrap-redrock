@@ -307,6 +307,9 @@ def plan(args, comm=None):
         if args.boss_coadd_frames_interp:
             rrcmd += ' --coadd-frames-interp {}'.format(args.boss_coadd_frames_interp)
 
+        if args.boss_use_andmask:
+            rrcmd += ' --use_andmask'
+
         print('srun -N $nodes -n $nodes -c {} {}'.format(maxproc, rrcmd))
 
     return specfiles, groups, grouptimes
@@ -379,6 +382,9 @@ def run_redrock(args, comm=None):
 
             if args.boss_coadd_frames_interp:
                 cmd += ' --coadd-frames-interp {}'.format(args.boss_coadd_frames_interp)
+
+            if args.boss_use_andmask:
+                cmd += ' --use-andmask'
 
         cmd += ' --nminima {}'.format(args.nminima)
         cmd += ' -o {} --zbest {}'.format(rrfiles[i], zbfiles[i])
@@ -477,6 +483,9 @@ def main():
         "when coadding frames.")
     parser.add_argument("--boss-random-seed", type=int, default=0,
         required=False, help="if using boss data, seed for choosing random exposure")
+    parser.add_argument("--boss-use-andmask", default=False, action="store_true",
+        required=False, help="if using boss data, uses and_mask values to set masked "
+        "pixel's ivar to zero.")
     args = parser.parse_args()
 
     if args.prefix is None:
