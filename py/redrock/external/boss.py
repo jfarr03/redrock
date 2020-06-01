@@ -543,7 +543,7 @@ def rrboss(options=None, comm=None):
     parser.add_argument("--use-andmask", default=False, action="store_true",
         required=False, help="uses and_mask values to set masked pixel's ivar to zero")
 
-    parser.add_argument("--mask-bits", default=None, action="store_true",
+    parser.add_argument("--mask-bits", type=int, default=None,
         required=False, help="which mask bits to include from the andmask", nargs='*')
 
     parser.add_argument("--no-mpi-abort", default=False, action="store_true",
