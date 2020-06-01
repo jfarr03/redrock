@@ -80,7 +80,7 @@ def write_zbest(outfile, zbest, template_version, archetype_version):
 ### @profile
 def read_spectra(spplates_name, targetids=None, use_frames=False,
     fiberid=None, coadd=False, cache_Rcsr=False, use_andmask=False,
-    use_best_exp=False, use_random_exp=False, random_seed=0,
+    mask_bits=None, use_best_exp=False, use_random_exp=False, random_seed=0,
     coadd_frames=False,coadd_frames_interp='ngp'):
     """Read targets from a list of spectra files
 
@@ -93,6 +93,7 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
         cache_Rcsr (bool): pre-calculate and cache sparse CSR format of
             resolution matrix R
         use_andmask (bool): sets ivar = 0 to pixels with and_mask != 0
+        mask bits (list): specifies which bits to use in the and_mask
 
     Returns:
         tuple: (targets, meta) where targets is a list of Target objects and
@@ -259,7 +260,13 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
         fl = h[0].read()
         iv = h[1].read()
         if use_andmask:
-            iv *= 1.*(h[2].read()==0)
+            if mask_bits is not None:
+                mask = np.ones(h[2].read().shape).astype('bool')
+                for b in mask_bits:
+                    mask &= ((h[2].read()&2**b)==0)
+            else:
+                mask = (h[2].read()==0)
+            iv *= 1.*mask
         wd = h[4].read()
 
         ## crop to lmin, lmax
@@ -423,8 +430,8 @@ def read_spectra(spplates_name, targetids=None, use_frames=False,
 
     if targetids == None:
         targetids = sorted(list(dic_spectra.keys()))
-    else:
-        targetids = sorted(targetids)
+    #else:
+#        targetids = sorted(targetids)
 
     targets = []
     for targetid in targetids:
@@ -535,6 +542,9 @@ def rrboss(options=None, comm=None):
 
     parser.add_argument("--use-andmask", default=False, action="store_true",
         required=False, help="uses and_mask values to set masked pixel's ivar to zero")
+
+    parser.add_argument("--mask-bits", default=None, action="store_true",
+        required=False, help="which mask bits to include from the andmask", nargs='*')
 
     parser.add_argument("--no-mpi-abort", default=False, action="store_true",
         required=False, help="Do not call MPI Abort upon failure of a single rank")
@@ -665,7 +675,7 @@ def rrboss(options=None, comm=None):
         #sys.stdout.flush()
         targets, meta = read_spectra(args.spplate, targetids=targetids,
             use_frames=args.use_frames, coadd=(not args.allspec),
-            cache_Rcsr=True, use_andmask=args.use_andmask,
+            cache_Rcsr=True, use_andmask=args.use_andmask, mask_bits=args.mask_bits,
             use_best_exp=args.use_best_exp, use_random_exp=args.use_random_exp,
             random_seed=args.random_seed, coadd_frames=args.coadd_frames,
             coadd_frames_interp=args.coadd_frames_interp)
